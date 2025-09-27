@@ -41,20 +41,48 @@ ls -ld restricted_folder
 Создайте темный каталог. Покажите, что получить список файлов нельзя, но можно получить доступ к файлу, зная его имя.
 
 ```bash
-# Создаем скрытую папку (начинается с точки)
-mkdir .hidden_folder
+# 1. Запуск контейнера
+docker run --rm -it ubuntu /bin/bash
 
-# Создаем файл внутри
-echo "Секретный файл" > .hidden_folder/secret.txt
+# 2. Установка утилит
+apt update -y > /dev/null 2>&1
+apt install -y coreutils > /dev/null 2>&1
 
-# Убираем права на чтение для всех кроме владельца
-chmod 700 .hidden_folder
+# 3. Создание каталогов и файлов
+mkdir -p /demo/{normal,dark,private}
 
-# Проверяем - список файлов не виден
-ls -la .hidden_folder
+echo "secret normal" > /demo/normal/secret.txt
+echo "secret dark"   > /demo/dark/secret.txt
+echo "secret private" > /demo/private/secret.txt
 
-# Но доступ к файлу по имени возможен
-cat .hidden_folder/secret.txt
+# 4. Установка владельца и прав
+chown -R root:root /demo
+chmod 755 /demo/normal
+chmod 644 /demo/normal/*
+chmod 711 /demo/dark
+chmod 644 /demo/dark/*
+chmod 700 /demo/private
+chmod 600 /demo/private/*
+
+# 5. Создание обычного пользователя
+useradd -m -s /bin/bash demo
+echo "demo:demo123" | chpasswd
+cp -r /demo /home/demo/
+chown -R root:root /home/demo/demo
+
+# 6. Проверка от имени demo
+su - demo
+# normal (755)
+ls /home/demo/demo/normal 2>&1 || echo 'Permission denied'
+cat /home/demo/demo/normal/secret.txt 2>&1 || echo 'Permission denied'
+
+# dark (711)
+ls /home/demo/demo/dark 2>&1 || echo 'Permission denied'
+cat /home/demo/demo/dark/secret.txt 2>&1 || echo 'Permission denied'
+
+# private (700)
+ls /home/demo/demo/private 2>&1 || echo 'Permission denied'
+cat /home/demo/demo/private/secret.txt 2>&1 || echo 'Permission denied'
 ```
 
 ## 3. Папка только для суперпользователя на запись
