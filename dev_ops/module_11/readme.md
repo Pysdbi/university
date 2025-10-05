@@ -55,51 +55,29 @@ if [ $# -ne 1 ]; then
 fi
 
 FILE="$1"
-
-# Проверяем существование файла
 if [ ! -e "$FILE" ]; then
     echo "Ошибка: файл '$FILE' не существует"
     exit 1
 fi
-
-# Создаем директорию TRASH если её нет
 mkdir -p ~/TRASH
-
-# Получаем базовое имя файла
 BASENAME=$(basename "$FILE")
 
-# Проверяем тип файла
 if [ -L "$FILE" ]; then
-    # Символическая ссылка
     echo "Обнаружена символическая ссылка: $FILE"
-    
-    # Получаем цель ссылки
     TARGET=$(readlink "$FILE")
     echo "Цель ссылки: $TARGET"
-    
-    # Удаляем символическую ссылку
     rm "$FILE"
     echo "Символическая ссылка '$FILE' удалена"
     echo "Оригинальный файл '$TARGET' остался нетронутым"
-    
 elif [ $(stat -c %h "$FILE") -gt 1 ]; then
-    # Жёсткая ссылка (количество ссылок больше 1)
     echo "Обнаружена жёсткая ссылка: $FILE"
-    
-    # Находим все жёсткие ссылки на этот файл
     INODE=$(stat -c %i "$FILE")
     echo "Найдены жёсткие ссылки на файл:"
     find $(dirname "$FILE") -samefile "$FILE" 2>/dev/null
-    
-    # Перемещаем файл в корзину
     mv "$FILE" ~/TRASH/"$BASENAME.$(date +%s)"
     echo "Файл '$FILE' перемещён в корзину ~/TRASH"
-    
 else
-    # Обычный файл
     echo "Обычный файл: $FILE"
-    
-    # Перемещаем файл в корзину
     mv "$FILE" ~/TRASH/"$BASENAME.$(date +%s)"
     echo "Файл '$FILE' перемещён в корзину ~/TRASH"
 fi
@@ -166,16 +144,11 @@ cat > ~/scripts/cleanup_trash.sh << 'EOF'
 
 TRASH_DIR="$HOME/TRASH"
 LOG_FILE="$HOME/cleanup_trash.log"
-
-# Проверяем существование директории корзины
 if [ ! -d "$TRASH_DIR" ]; then
     echo "$(date): Директория корзины $TRASH_DIR не существует" >> "$LOG_FILE"
     exit 1
 fi
-
-# Удаляем файлы старше 1 дня
 DELETED_COUNT=$(find "$TRASH_DIR" -type f -mtime +1 -delete -print | wc -l)
-
 echo "$(date): Удалено $DELETED_COUNT файлов из корзины" >> "$LOG_FILE"
 EOF
 
@@ -213,14 +186,11 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
-# Перезагружаем systemd
 systemctl daemon-reload
 
-# Включаем и запускаем timer
 systemctl enable cleanup-trash.timer
 systemctl start cleanup-trash.timer
 
-# Проверяем статус
 systemctl status cleanup-trash.timer
 systemctl list-timers cleanup-trash.timer
 ```
@@ -276,40 +246,24 @@ crontab -l
 cat > ~/scripts/symlink_to_file.sh << 'EOF'
 #!/bin/bash
 
-# Проверяем количество аргументов
 if [ $# -ne 1 ]; then
     echo "Использование: $0 <символическая_ссылка>"
     exit 1
 fi
-
 SYMLINK="$1"
-
-# Проверяем, что это символическая ссылка
 if [ ! -L "$SYMLINK" ]; then
     echo "Ошибка: '$SYMLINK' не является символической ссылкой"
     exit 1
 fi
-
-# Получаем цель ссылки
 TARGET=$(readlink "$SYMLINK")
-
-# Проверяем, что цель существует
 if [ ! -e "$TARGET" ]; then
     echo "Ошибка: цель ссылки '$TARGET' не существует"
     exit 1
 fi
-
-# Создаем временный файл
 TEMP_FILE=$(mktemp)
-
-# Копируем содержимое цели в временный файл
 if cp "$TARGET" "$TEMP_FILE"; then
-    # Удаляем символическую ссылку
     rm "$SYMLINK"
-    
-    # Перемещаем временный файл на место ссылки
     mv "$TEMP_FILE" "$SYMLINK"
-    
     echo "Символическая ссылка '$SYMLINK' успешно превращена в обычный файл"
     echo "Содержимое скопировано из '$TARGET'"
 else
